@@ -1,3 +1,4 @@
-[Name]
-pidfile:/path/to/pid/file
-programfile:/path/to/program/file
+[photoFrame]
+pidfile==/home/chadg/logs/photoFrame.pid
+programfile==/home/chadg/photoFrame/main.py
+logfile==/home/chadg/logs/photoFrame.log

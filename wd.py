@@ -1,61 +1,84 @@
-#!/usr/bin/env
-import logging
+#!/usr/bin/env python
+import logging as log
+import os
+import sys
+import subprocess
+import filelock
+
 
 #my own watchdog program
 #read config file
 
-def sysType():
-	"""
-	selects between the two main systems this would run on, either a pi with user pi or another machine
-	with user chadg
-	"""
-	global G_SYSTEM
-	if os.path.isdir("/home/pi"):
-		G_SYSTEM="pi"
-		setSetting("system","pi")
-	else:
-		G_SYSTEM="chadg"
-
-sysType()
+G_SYSTEM=""
+if os.path.isdir("/home/pi"):
+	G_SYSTEM="pi"
+else:
+	G_SYSTEM="chadg"
 FORMAT='%(levelname)s %(asctime)s %(threadName)s : %(message)s'
 LOGFILE='/home/'+G_SYSTEM+'/logs/wd.log'
-log=logging.getLogger(__name__)
-logging.basicConfig(format=FORMAT,datefmt='%m-%d-%y %H:%M:%S',filename=LOGFILE,level=logging.DEBUG)
+log.basicConfig(format=FORMAT,datefmt='%m-%d-%y %H:%M:%S',filename=LOGFILE,level=log.INFO)
 log.info('Logging Started')
 
 try:
-	f=open("wd.conf","r")
+	f=open("/home/"+G_SYSTEM+"/WD/wd.conf","r")
+	log.info("wd.conf open")
+	log.info("\n\n\n")
 except:
 	log.error("Could not open wd.conf")
 	exit()
 
 pidFiles=[]
 programFiles=[]
+logFiles=[]
 data=f.read().split("\n")
-for line in data:
-	if line.strip()=="":
-		continue
-	if "pidfile" in line:
-		pidFiles.append(line.split("=")[1]
-	if "programfile" in line:
-		programFiles.append(line.split("=")[1]
 f.close()
-if len(pidFiles)!=len(programFiles):
-	log.error("Error Parsing config file")
-
-for index in range(len(pidfiles)):
+for line in data:
 	try:
-		f=open(pid[index],"w")
-		f.close()
-		#we were able to open it, so it must not be running
-		pid=os.spawnl(os.P_NOWAIT,programFiles[index])
-		log.info("Started "+programFiles[index]+" with pid: "+str(pid))
+		line=line.strip()
+		if line=="":
+			continue
+		if line[0]=='#':
+			continue
+		if "pidfile" in line:
+			pidFiles.append(line.split("==")[1])
+		if "programfile" in line:
+			programFiles.append(line.split("==")[1])
+		if "logfile" in line:
+			logFiles.append(line.split("==")[1])
 	except:
-		log.info(pid+" file is locked....
+		log.error("Failed to parse wd.conf")
+		log.error(sys.exc_info())
+		exit()
+if len(pidFiles)!=len(programFiles) or len(pidFiles)!=len(logFiles):
+	log.error("Error Parsing config file")
+	exit()
+	
+log.info("Found "+str(len(pidFiles))+ " programs to check from wd.conf")
+for index in range(len(pidFiles)):
+	try:
+		lock=filelock.FileLock(pidFiles[index])
+		lock.timeout=1
+		#will throw an exception if lock is not acquired
+		lock.acquire()
+		lock.release()
+		log.warning("Starting "+ programFiles[index])
+		#we were able to open it, so it must not be running
+		try:
+			cur_env=os.environ.copy()
+			cur_env["DISPLAY"]=":0"
+			subprocess.Popen(programFiles[index].split(" "),env=cur_env)
+		except:
+			log.error("Failed to start program")
+			log.error(programFiles[index].split(" "))
+			log.error(sys.exc_info())
+	except:
+		log.info(pidFiles[index]+" already running")
+		
 """
 Config file example data
 
 [Name]
 pidfile:/path/to/pid/file
+logfile:/path/to/log/file
 programfile:/path/to/program/file
 """
