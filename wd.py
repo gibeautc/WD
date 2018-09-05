@@ -45,6 +45,26 @@ for line in data:
 			programFiles.append(line.split("==")[1])
 		if "logfile" in line:
 			logFiles.append(line.split("==")[1])
+		if "[pandora]" in line:
+			try:
+				out=subprocess.check_output(['ps','-A'])
+				cur_env=os.environ.copy()
+				cur_env["DISPLAY"]=":0"
+				log.info(cur_env)
+				try:
+					if "pianobar" in out:
+						log.info("Pandora is still running")
+					else:
+						log.info("starting pandora")
+						subprocess.Popen(['/usr/bin/pianobar',],env=cur_env)
+				except:
+					log.error("Failed to start pandora")
+					log.error(sys.exc_info())
+			except:
+				log.error("Failed to check on pandora")
+				log.error(sys.exc_info())
+			
+				
 	except:
 		log.error("Failed to parse wd.conf")
 		log.error(sys.exc_info())
